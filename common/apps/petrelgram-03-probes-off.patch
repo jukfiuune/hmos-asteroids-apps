@@ -1,0 +1,28 @@
+diff --git a/entry/src/main/ets/util/rowProbe.ets b/entry/src/main/ets/util/rowProbe.ets
+index 2630db0..1dae33e 100644
+--- a/entry/src/main/ets/util/rowProbe.ets
++++ b/entry/src/main/ets/util/rowProbe.ets
+@@ -12,7 +12,9 @@
+ import { displaySync } from '@kit.ArkGraphics2D';
+ import { hilog } from '@kit.PerformanceAnalysisKit';
+ 
+-const ENABLED: boolean = true;
++// Off (asteroids port): nothing ever calls stop(), so once a chat had been
++// opened its 120 Hz DisplaySync requested every frame until the process died.
++const ENABLED: boolean = false;
+ 
+ class RowProbe {
+   private sync: displaySync.DisplaySync | undefined = undefined;
+diff --git a/entry/src/main/ets/util/splicePublish.ets b/entry/src/main/ets/util/splicePublish.ets
+index edd5695..d86b2ec 100644
+--- a/entry/src/main/ets/util/splicePublish.ets
++++ b/entry/src/main/ets/util/splicePublish.ets
+@@ -158,7 +158,7 @@ export function planEdgeSplice(prevIds: string[], nextIds: string[]): EdgeSplice
+ //   · 扫到  → 数据真有两行同身份（看两行的 id/rowId 能进一步分清是 rowId
+ //            继承出岔子，还是相册身份撞了）
+ //   · 扫不到 → 是 Repeat 在 splice 之后重整内部 key→index 表的误报
+-export const PUBLISH_DUPLICATE_SCAN: boolean = true;
++export const PUBLISH_DUPLICATE_SCAN: boolean = false; // probe off (asteroids port)
+ 
+ export interface DuplicateRowReport {
+   identity: string;

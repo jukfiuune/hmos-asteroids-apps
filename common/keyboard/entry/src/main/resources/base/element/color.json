@@ -1,0 +1,16 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "kb_shadow",
+      "value": "#26000000"
+    },
+    {
+      "name": "kb_panel",
+      "value": "#E5E6E7"
+    }
+  ]
+}

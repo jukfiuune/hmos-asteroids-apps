@@ -1,0 +1,579 @@
+diff --git a/entry/src/main/ets/pages/Index.ets b/entry/src/main/ets/pages/Index.ets
+index 5016e5f..b061295 100644
+--- a/entry/src/main/ets/pages/Index.ets
++++ b/entry/src/main/ets/pages/Index.ets
+@@ -433,7 +433,7 @@ struct Index {
+ 
+       if (this.isAddingAccount() && !this.tdAccountSwitching) {
+         Row({ space: 5 }) {
+-          SymbolGlyph($r('sys.symbol.chevron_left'))
++          SymbolGlyph($r('sys.symbol.chevron_backward'))
+             .fontSize(23).fontColor([COLOR_TEXT_PRIMARY]);
+           Text($r('app.string.ar_back_to_account'))
+             .fontSize(15).fontWeight(FontWeight.Medium).fontColor(COLOR_TEXT_PRIMARY);
+diff --git a/entry/src/main/ets/pages/chat/ChatComposerInput.ets b/entry/src/main/ets/pages/chat/ChatComposerInput.ets
+index 83aa4a6..1c96b79 100644
+--- a/entry/src/main/ets/pages/chat/ChatComposerInput.ets
++++ b/entry/src/main/ets/pages/chat/ChatComposerInput.ets
+@@ -489,7 +489,7 @@ export struct ChatComposerInput {
+       // The attachment action stays outside the growing text capsule.
+       if (!this.recording.isRecording) {
+         Stack() {
+-          SymbolGlyph($r('sys.symbol.paperclip'))
++          SymbolGlyph($r('sys.symbol.plus_circle'))
+             .fontSize(23)
+             .fontColor([this.attachPanelOpen ? this.accentColor : this.chromeIconColor])
+             .opacity(this.attachPanelOpen ? 0 : 1)
+@@ -563,7 +563,7 @@ export struct ChatComposerInput {
+               .animation({ duration: this.smoothEffectDuration(120), curve: Curve.EaseOut })
+               .onClick((): void => { this.onCancelRecording(); });
+             Button() {
+-              SymbolGlyph($r('sys.symbol.paperplane')).fontSize(20).fontColor([Color.White]);
++              SymbolGlyph($r('sys.symbol.arrow_up')).fontSize(20).fontColor([Color.White]);
+             }
+             .width(40).height(40).borderRadius(20)
+             .stateStyles({
+diff --git a/entry/src/main/ets/pages/chat/ChatHeader.ets b/entry/src/main/ets/pages/chat/ChatHeader.ets
+index 842d4e7..14f3fb5 100644
+--- a/entry/src/main/ets/pages/chat/ChatHeader.ets
++++ b/entry/src/main/ets/pages/chat/ChatHeader.ets
+@@ -305,7 +305,7 @@ export struct ChatHeader {
+   @Builder
+   backButton() {
+     Row() {
+-      SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(22)
++      SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(22)
+         .fontColor([chromeTextColorOf(this.onLightBg, this.onDarkBg)]);
+     }
+     .width(CHAT_HEADER_ACTION_SIZE)
+@@ -339,13 +339,11 @@ export struct ChatHeader {
+       // 替换更像"同一个东西转过去了"。SVG 是位图路径、没法真正形变，这是
+       // 视觉上最接近的做法。
+       //
+-      // 系统符号库里没有汉堡线条（list_bullet 带项目符号，不是一回事），
+-      // 所以横线用自带的 SVG；fillColor 能染色，深浅色主题下跟其它图标一致。
++      // The system Messages app's conversation menu symbol (dot_grid_2x2) instead of the bundled hamburger SVG
++      // (asteroids port).
+       Stack() {
+-        Image($r('app.media.ic_header_menu'))
+-          .width(18).height(18)
+-          .fillColor(chromeTextColorOf(this.onLightBg, this.onDarkBg))
+-          .draggable(false)
++        SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
++          .fontSize(19).fontColor([chromeTextColorOf(this.onLightBg, this.onDarkBg)])
+           // 交叉淡入 + 反向旋转由 onMenuShowChanged 的 animateTo 驱动，图标上不挂常驻 .animation()
+           // （理由见本组件开头按压态那段）。
+           .opacity(this.menuIconOpen ? 0 : 1)
+diff --git a/entry/src/main/ets/pages/chat/ChatHeaderMenu.ets b/entry/src/main/ets/pages/chat/ChatHeaderMenu.ets
+index 61274fe..eae79de 100644
+--- a/entry/src/main/ets/pages/chat/ChatHeaderMenu.ets
++++ b/entry/src/main/ets/pages/chat/ChatHeaderMenu.ets
+@@ -157,7 +157,7 @@ struct ChatHeaderMenu {
+   folderPanel() {
+     Column() {
+       Row({ space: 14 }) {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(19).fontColor([COLOR_BUBBLE_TEXT]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(19).fontColor([COLOR_BUBBLE_TEXT]);
+         Text(str('cl_add_to_folder')).fontSize(16).fontColor(COLOR_BUBBLE_TEXT)
+           .fontWeight(FontWeight.Medium).layoutWeight(1);
+       }
+diff --git a/entry/src/main/ets/pages/chat/ChatSearchBars.ets b/entry/src/main/ets/pages/chat/ChatSearchBars.ets
+index bcd3543..e76abe2 100644
+--- a/entry/src/main/ets/pages/chat/ChatSearchBars.ets
++++ b/entry/src/main/ets/pages/chat/ChatSearchBars.ets
+@@ -126,7 +126,7 @@ export struct SearchHeader {
+   build() {
+     Row({ space: 4 }) {
+       Row() {
+-        SymbolGlyph($r('sys.symbol.chevron_left'))
++        SymbolGlyph($r('sys.symbol.chevron_backward'))
+           .fontSize(22).fontColor([COLOR_TEXT_PRIMARY]);
+       }
+       .width(40).height(40)
+diff --git a/entry/src/main/ets/pages/chat/ComposerSendButton.ets b/entry/src/main/ets/pages/chat/ComposerSendButton.ets
+index 81801c5..caea940 100644
+--- a/entry/src/main/ets/pages/chat/ComposerSendButton.ets
++++ b/entry/src/main/ets/pages/chat/ComposerSendButton.ets
+@@ -72,7 +72,7 @@ export struct ComposerSendButton {
+           } else {
+             // 草稿从空变非空时这颗才挂载，isActive=true 让它出现即弹一下，
+             // 和外层已有的 opacity+scale 转场叠在一起。
+-            SymbolGlyph($r('sys.symbol.paperplane')).fontSize(20).fontColor([Color.White])
++            SymbolGlyph($r('sys.symbol.arrow_up')).fontSize(20).fontColor([Color.White])
+               .symbolEffect(new BounceSymbolEffect(EffectScope.WHOLE, EffectDirection.UP), true);
+           }
+         }
+diff --git a/entry/src/main/ets/pages/chat/DirectMessagesTopicsPage.ets b/entry/src/main/ets/pages/chat/DirectMessagesTopicsPage.ets
+index 15cfd32..2cd3298 100644
+--- a/entry/src/main/ets/pages/chat/DirectMessagesTopicsPage.ets
++++ b/entry/src/main/ets/pages/chat/DirectMessagesTopicsPage.ets
+@@ -210,7 +210,7 @@ export struct DirectMessagesTopicsPage {
+       Column() {
+         Row({ space: 6 }) {
+           Row() {
+-            SymbolGlyph($r('sys.symbol.chevron_left'))
++            SymbolGlyph($r('sys.symbol.chevron_backward'))
+               .fontSize(25)
+               .fontColor([COLOR_TEXT_PRIMARY]);
+           }
+diff --git a/entry/src/main/ets/pages/chat/ForumTopicsPage.ets b/entry/src/main/ets/pages/chat/ForumTopicsPage.ets
+index 6279227..c094905 100644
+--- a/entry/src/main/ets/pages/chat/ForumTopicsPage.ets
++++ b/entry/src/main/ets/pages/chat/ForumTopicsPage.ets
+@@ -336,7 +336,7 @@ export struct ForumTopicsPage {
+     Column() {
+       Row({ space: 6 }) {
+         Row() {
+-          SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]);
++          SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]);
+         }
+         .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+         .onClick((): void => this.goBack());
+diff --git a/entry/src/main/ets/pages/chat/LiveStreamViewerPage.ets b/entry/src/main/ets/pages/chat/LiveStreamViewerPage.ets
+index 7f5b06d..b3fb591 100644
+--- a/entry/src/main/ets/pages/chat/LiveStreamViewerPage.ets
++++ b/entry/src/main/ets/pages/chat/LiveStreamViewerPage.ets
+@@ -2011,7 +2011,7 @@ struct LiveStreamViewerPage {
+   header() {
+     Row({ space: 6 }) {
+       Row() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(23).fontColor([CALL_TEXT]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(23).fontColor([CALL_TEXT]);
+       }
+       .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+       .stateStyles({ normal: this.topActionNormalStyle, pressed: this.topActionPressedStyle })
+@@ -2488,7 +2488,7 @@ struct LiveStreamViewerPage {
+               Progress({ value: 30, total: 100, type: ProgressType.Ring })
+                 .width(17).height(17).color(Color.White).style({ strokeWidth: 2 });
+             } else {
+-              SymbolGlyph($r('sys.symbol.paperplane')).fontSize(18).fontColor([Color.White]);
++              SymbolGlyph($r('sys.symbol.arrow_up')).fontSize(18).fontColor([Color.White]);
+             }
+           }
+           .width(42).height(42).padding(0)
+@@ -2673,7 +2673,7 @@ struct LiveStreamViewerPage {
+   switchCameraButton() {
+     Column({ space: 4 }) {
+       Button({ type: ButtonType.Circle }) {
+-        Text('↻').fontSize(24).fontWeight(FontWeight.Bold).fontColor(Color.White);
++        SymbolGlyph($r('sys.symbol.arrow_clockwise')).fontSize(24).fontColor([Color.White]);
+       }
+       .width(46).height(46)
+       .backgroundColor(
+diff --git a/entry/src/main/ets/pages/chat/MediaViewerOverlay.ets b/entry/src/main/ets/pages/chat/MediaViewerOverlay.ets
+index b235dd0..0969143 100644
+--- a/entry/src/main/ets/pages/chat/MediaViewerOverlay.ets
++++ b/entry/src/main/ets/pages/chat/MediaViewerOverlay.ets
+@@ -1862,7 +1862,7 @@ export struct MediaViewerOverlay {
+               } else {
+                 Stack() {
+                   Circle({ width: 56, height: 56 }).fill('#66000000');
+-                  Text('▶').fontSize(24).fontColor(Color.White);
++                  SymbolGlyph($r('sys.symbol.play_fill')).fontSize(24).fontColor([Color.White]);
+                 }.width(56).height(56);
+               }
+             }
+diff --git a/entry/src/main/ets/pages/chat/RtmpLiveStreamViewerPage.ets b/entry/src/main/ets/pages/chat/RtmpLiveStreamViewerPage.ets
+index ab1534e..da56205 100644
+--- a/entry/src/main/ets/pages/chat/RtmpLiveStreamViewerPage.ets
++++ b/entry/src/main/ets/pages/chat/RtmpLiveStreamViewerPage.ets
+@@ -1532,7 +1532,7 @@ struct RtmpLiveStreamViewerPage {
+   header() {
+     Row({ space: 6 }) {
+       Row() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(23).fontColor([LIVE_TEXT]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(23).fontColor([LIVE_TEXT]);
+       }
+       .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+       .stateStyles({ normal: this.topActionNormalStyle, pressed: this.topActionPressedStyle })
+@@ -1743,7 +1743,7 @@ struct RtmpLiveStreamViewerPage {
+               Progress({ value: 30, total: 100, type: ProgressType.Ring })
+                 .width(18).height(18).color(Color.White).style({ strokeWidth: 2 });
+             } else {
+-              SymbolGlyph($r('sys.symbol.paperplane')).fontSize(19).fontColor([Color.White]);
++              SymbolGlyph($r('sys.symbol.arrow_up')).fontSize(19).fontColor([Color.White]);
+             }
+           }
+           .width(42).height(42).borderRadius(21)
+diff --git a/entry/src/main/ets/pages/chat/SuggestionPanel.ets b/entry/src/main/ets/pages/chat/SuggestionPanel.ets
+index 1fa8d99..9153108 100644
+--- a/entry/src/main/ets/pages/chat/SuggestionPanel.ets
++++ b/entry/src/main/ets/pages/chat/SuggestionPanel.ets
+@@ -140,7 +140,7 @@ export struct SuggestionPanel {
+               .stateStyles({ normal: this.rowNormalStyle, pressed: this.rowPressedStyle })
+               .accessibilityText(str('cp_command_fill_a11y'))
+               .onClick((): void => { this.onFillCommand(it); });
+-              SymbolGlyph($r('sys.symbol.paperplane'))
++              SymbolGlyph($r('sys.symbol.arrow_up'))
+                 .fontSize(14).fontColor([COLOR_ICON_SECONDARY]);
+             }
+             .width('100%').padding({ left: 12, right: 12, top: 7, bottom: 7 })
+diff --git a/entry/src/main/ets/pages/chat/ViewerFilmstripCell.ets b/entry/src/main/ets/pages/chat/ViewerFilmstripCell.ets
+index d3b1ea5..8bad943 100644
+--- a/entry/src/main/ets/pages/chat/ViewerFilmstripCell.ets
++++ b/entry/src/main/ets/pages/chat/ViewerFilmstripCell.ets
+@@ -127,7 +127,7 @@ export struct ViewerFilmstripCell {
+         });
+       }
+       if (this.cell.isVideo) {
+-        Text('▶').fontSize(14).fontColor(Color.White);
++        SymbolGlyph($r('sys.symbol.play_fill')).fontSize(14).fontColor([Color.White]);
+       }
+     }
+     .width(THUMB).height(THUMB)
+diff --git a/entry/src/main/ets/pages/chatlist/ArchivePage.ets b/entry/src/main/ets/pages/chatlist/ArchivePage.ets
+index 36194d2..6469e7e 100644
+--- a/entry/src/main/ets/pages/chatlist/ArchivePage.ets
++++ b/entry/src/main/ets/pages/chatlist/ArchivePage.ets
+@@ -109,7 +109,7 @@ export struct ArchivePage {
+     Column() {
+       Row() {
+         Row() {
+-          SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++          SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+         }
+         .width(44).height(44).borderRadius(22)
+         .justifyContent(FlexAlign.Center)
+diff --git a/entry/src/main/ets/pages/chatlist/ChatListPage.ets b/entry/src/main/ets/pages/chatlist/ChatListPage.ets
+index ce1ce9b..109678d 100644
+--- a/entry/src/main/ets/pages/chatlist/ChatListPage.ets
++++ b/entry/src/main/ets/pages/chatlist/ChatListPage.ets
+@@ -1176,7 +1176,7 @@ export struct ChatListPage {
+ 
+       Row({ space: 8 }) {
+         this.searchAction();
+-        this.topAction('sys.symbol.more', $r('app.string.cl_more_actions'), (): void => {
++        this.topAction('sys.symbol.dot_grid_2x2', $r('app.string.cl_more_actions'), (): void => {
+           this.moreMenuShown = true;
+         });
+       }
+diff --git a/entry/src/main/ets/pages/main/BlockedUsersPage.ets b/entry/src/main/ets/pages/main/BlockedUsersPage.ets
+index d735424..93eb4eb 100644
+--- a/entry/src/main/ets/pages/main/BlockedUsersPage.ets
++++ b/entry/src/main/ets/pages/main/BlockedUsersPage.ets
+@@ -344,7 +344,7 @@ struct BlockedUsersPage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Column({ space: 1 }) {
+diff --git a/entry/src/main/ets/pages/main/CallsPage.ets b/entry/src/main/ets/pages/main/CallsPage.ets
+index 7abd0d5..d9bdad6 100644
+--- a/entry/src/main/ets/pages/main/CallsPage.ets
++++ b/entry/src/main/ets/pages/main/CallsPage.ets
+@@ -386,7 +386,7 @@ struct CallsPage {
+   @Builder
+   topBar() {
+     Row({ space: 6 }) {
+-      Row() { SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
++      Row() { SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
+         .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+         .stateStyles({ normal: this.pressNormal, pressed: this.pressDown })
+         .onClick((): void => this.getUIContext().getRouter().back());
+@@ -397,7 +397,7 @@ struct CallsPage {
+       if (this.actionKey !== '' || this.refreshing) {
+         LoadingProgress().width(19).height(19).color(COLOR_PRIMARY).margin({ right: 13 });
+       } else {
+-        Row() { SymbolGlyph($r('sys.symbol.more')).fontSize(23).fontColor([COLOR_TEXT_PRIMARY]); }
++        Row() { SymbolGlyph($r('sys.symbol.dot_grid_2x2')).fontSize(23).fontColor([COLOR_TEXT_PRIMARY]); }
+           .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+           .stateStyles({ normal: this.pressNormal, pressed: this.pressDown })
+           .bindMenu(this.topMenu(), { systemMaterial: overlayMaterial('menu') });
+diff --git a/entry/src/main/ets/pages/main/ChatBackgroundPage.ets b/entry/src/main/ets/pages/main/ChatBackgroundPage.ets
+index 4d65e79..079e2f9 100644
+--- a/entry/src/main/ets/pages/main/ChatBackgroundPage.ets
++++ b/entry/src/main/ets/pages/main/ChatBackgroundPage.ets
+@@ -854,7 +854,7 @@ struct ChatBackgroundPage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text(this.chatId !== 0 ? $r('app.string.cb_chat_title') : $r('app.string.chat_settings_background'))
+diff --git a/entry/src/main/ets/pages/main/ChatThemePage.ets b/entry/src/main/ets/pages/main/ChatThemePage.ets
+index 8678ece..01702f7 100644
+--- a/entry/src/main/ets/pages/main/ChatThemePage.ets
++++ b/entry/src/main/ets/pages/main/ChatThemePage.ets
+@@ -79,7 +79,7 @@ struct ChatThemePage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text($r('app.string.chat_theme_title')).fontSize(22).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
+diff --git a/entry/src/main/ets/pages/main/ConnectedWebsitesPage.ets b/entry/src/main/ets/pages/main/ConnectedWebsitesPage.ets
+index e06a1d3..af15402 100644
+--- a/entry/src/main/ets/pages/main/ConnectedWebsitesPage.ets
++++ b/entry/src/main/ets/pages/main/ConnectedWebsitesPage.ets
+@@ -126,7 +126,7 @@ struct ConnectedWebsitesPage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text($r('app.string.cw_title')).fontSize(22).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
+diff --git a/entry/src/main/ets/pages/main/FolderEditPage.ets b/entry/src/main/ets/pages/main/FolderEditPage.ets
+index d36105e..847bea0 100644
+--- a/entry/src/main/ets/pages/main/FolderEditPage.ets
++++ b/entry/src/main/ets/pages/main/FolderEditPage.ets
+@@ -485,7 +485,7 @@ struct FolderEditPage {
+   @Builder
+   header() {
+     Row({ space: 6 }) {
+-      Row() { SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
++      Row() { SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
+         .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+         .stateStyles({ normal: this.pressNormal, pressed: this.pressDown })
+         .onClick((): void => this.requestBack());
+diff --git a/entry/src/main/ets/pages/main/FolderInviteLinksPage.ets b/entry/src/main/ets/pages/main/FolderInviteLinksPage.ets
+index a29dcf1..82d1caa 100644
+--- a/entry/src/main/ets/pages/main/FolderInviteLinksPage.ets
++++ b/entry/src/main/ets/pages/main/FolderInviteLinksPage.ets
+@@ -245,7 +245,7 @@ struct FolderInviteLinksPage {
+   @Builder
+   header() {
+     Row({ space: 6 }) {
+-      Row() { SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
++      Row() { SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
+         .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+         .stateStyles({ normal: this.pressNormal, pressed: this.pressDown }).onClick((): void => this.getUIContext().getRouter().back());
+       Column({ space: 1 }) {
+diff --git a/entry/src/main/ets/pages/main/GroupAdminPage.ets b/entry/src/main/ets/pages/main/GroupAdminPage.ets
+index 615b48d..a90b204 100644
+--- a/entry/src/main/ets/pages/main/GroupAdminPage.ets
++++ b/entry/src/main/ets/pages/main/GroupAdminPage.ets
+@@ -340,7 +340,7 @@ struct GroupAdminPage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text($r('app.string.ga_title')).fontSize(22).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
+diff --git a/entry/src/main/ets/pages/main/GroupNotificationsPage.ets b/entry/src/main/ets/pages/main/GroupNotificationsPage.ets
+index 6e211ee..2b44d8a 100644
+--- a/entry/src/main/ets/pages/main/GroupNotificationsPage.ets
++++ b/entry/src/main/ets/pages/main/GroupNotificationsPage.ets
+@@ -311,7 +311,7 @@ struct GroupNotificationsPage {
+       Column() {
+         Row({ space: 8 }) {
+           Button() {
+-            SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++            SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+           }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+           .onClick((): void => { this.getUIContext().getRouter().back(); });
+           Text($r('app.string.gn_title')).fontSize(22).fontWeight(FontWeight.Bold)
+diff --git a/entry/src/main/ets/pages/main/NetworkUsagePage.ets b/entry/src/main/ets/pages/main/NetworkUsagePage.ets
+index f36ffe5..61bc57f 100644
+--- a/entry/src/main/ets/pages/main/NetworkUsagePage.ets
++++ b/entry/src/main/ets/pages/main/NetworkUsagePage.ets
+@@ -112,7 +112,7 @@ struct NetworkUsagePage {
+   @Builder
+   header() {
+     Row({ space: 8 }) {
+-      Row() { SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
++      Row() { SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]); }
+       .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+       .stateStyles({ normal: this.actionNormalStyle, pressed: this.actionPressedStyle })
+       .onClick((): void => this.getUIContext().getRouter().back());
+diff --git a/entry/src/main/ets/pages/main/NewGroupPage.ets b/entry/src/main/ets/pages/main/NewGroupPage.ets
+index 7ce05fd..f80be02 100644
+--- a/entry/src/main/ets/pages/main/NewGroupPage.ets
++++ b/entry/src/main/ets/pages/main/NewGroupPage.ets
+@@ -583,7 +583,7 @@ struct NewGroupPage {
+   header() {
+     Row({ space: 8 }) {
+       Row() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }
+       .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+       .enabled(!this.creating && !this.openingCreatedChat)
+diff --git a/entry/src/main/ets/pages/main/PrivacyExceptionsPage.ets b/entry/src/main/ets/pages/main/PrivacyExceptionsPage.ets
+index c9defe3..4e8d913 100644
+--- a/entry/src/main/ets/pages/main/PrivacyExceptionsPage.ets
++++ b/entry/src/main/ets/pages/main/PrivacyExceptionsPage.ets
+@@ -269,7 +269,7 @@ struct PrivacyExceptionsPage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text(str('pe_title', this.title)).fontSize(22).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
+diff --git a/entry/src/main/ets/pages/main/PrivacyRulePage.ets b/entry/src/main/ets/pages/main/PrivacyRulePage.ets
+index a83a5e9..fed0624 100644
+--- a/entry/src/main/ets/pages/main/PrivacyRulePage.ets
++++ b/entry/src/main/ets/pages/main/PrivacyRulePage.ets
+@@ -142,7 +142,7 @@ struct PrivacyRulePage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }
+       .width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+diff --git a/entry/src/main/ets/pages/main/SettingsPage.ets b/entry/src/main/ets/pages/main/SettingsPage.ets
+index 30ab918..83f8095 100644
+--- a/entry/src/main/ets/pages/main/SettingsPage.ets
++++ b/entry/src/main/ets/pages/main/SettingsPage.ets
+@@ -766,7 +766,7 @@ export struct SettingsPage {
+       if (this.settingsSearchOpen) {
+         Row({ space: 8 }) {
+           Row() {
+-            SymbolGlyph($r('sys.symbol.chevron_left'))
++            SymbolGlyph($r('sys.symbol.chevron_backward'))
+               .fontSize(23)
+               .fontColor([COLOR_TEXT_PRIMARY]);
+           }
+diff --git a/entry/src/main/ets/pages/main/StorageUsagePage.ets b/entry/src/main/ets/pages/main/StorageUsagePage.ets
+index 38d48c7..4d7afc7 100644
+--- a/entry/src/main/ets/pages/main/StorageUsagePage.ets
++++ b/entry/src/main/ets/pages/main/StorageUsagePage.ets
+@@ -178,7 +178,7 @@ struct StorageUsagePage {
+   header() {
+     Row({ space: 8 }) {
+       Row() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+       .stateStyles({ normal: this.actionNormalStyle, pressed: this.actionPressedStyle })
+       .onClick((): void => this.getUIContext().getRouter().back());
+diff --git a/entry/src/main/ets/pages/main/TwoStepVerificationPage.ets b/entry/src/main/ets/pages/main/TwoStepVerificationPage.ets
+index 121b820..512a331 100644
+--- a/entry/src/main/ets/pages/main/TwoStepVerificationPage.ets
++++ b/entry/src/main/ets/pages/main/TwoStepVerificationPage.ets
+@@ -282,7 +282,7 @@ struct TwoStepVerificationPage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text($r('app.string.ps_two_step')).fontSize(22).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
+diff --git a/entry/src/main/ets/pages/main/WebPushPage.ets b/entry/src/main/ets/pages/main/WebPushPage.ets
+index 0c0092e..d794830 100644
+--- a/entry/src/main/ets/pages/main/WebPushPage.ets
++++ b/entry/src/main/ets/pages/main/WebPushPage.ets
+@@ -715,7 +715,7 @@ struct WebPushPage {
+       });
+       Column() {
+           Row({ space: 6 }) {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(22).fontColor([COLOR_TEXT_PRIMARY])
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(22).fontColor([COLOR_TEXT_PRIMARY])
+           .onClick((): void => { this.getUIContext().getRouter().back(); });
+         Text($r('app.string.ns_custom_push')).fontSize(18).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY);
+       }
+diff --git a/entry/src/main/ets/pages/music/MusicCenterTopBar.ets b/entry/src/main/ets/pages/music/MusicCenterTopBar.ets
+index a0835aa..facae73 100644
+--- a/entry/src/main/ets/pages/music/MusicCenterTopBar.ets
++++ b/entry/src/main/ets/pages/music/MusicCenterTopBar.ets
+@@ -33,7 +33,7 @@ export struct MusicCenterTopBar {
+ 
+   build() {
+     Row() {
+-      this.iconButton('sys.symbol.chevron_left', (): void => { this.onBack(); });
++      this.iconButton('sys.symbol.chevron_backward', (): void => { this.onBack(); });
+       Row({ space: 8 }) {
+         Text($r('app.string.mc_title'))
+           .fontSize(12).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY);
+diff --git a/entry/src/main/ets/pages/profile/ChatProfilePage.ets b/entry/src/main/ets/pages/profile/ChatProfilePage.ets
+index 1d05853..29d67c3 100644
+--- a/entry/src/main/ets/pages/profile/ChatProfilePage.ets
++++ b/entry/src/main/ets/pages/profile/ChatProfilePage.ets
+@@ -1119,7 +1119,7 @@ export struct ChatProfilePage {
+   header() {
+     Column({ space: 10 }) {
+       Row() {
+-        this.circleButton('sys.symbol.chevron_left', () => { this.goBack(); });
++        this.circleButton('sys.symbol.chevron_backward', () => { this.goBack(); });
+         Blank().layoutWeight(1);
+         // Top-right is the leave action; everything else lives in the
+         // actions-row 更多 menu.
+diff --git a/entry/src/main/ets/pages/profile/MemberPromotePage.ets b/entry/src/main/ets/pages/profile/MemberPromotePage.ets
+index d8b0b70..7eca896 100644
+--- a/entry/src/main/ets/pages/profile/MemberPromotePage.ets
++++ b/entry/src/main/ets/pages/profile/MemberPromotePage.ets
+@@ -191,7 +191,7 @@ struct MemberPromotePage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text(this.isAdmin ? str('mm_edit_admin') : str('mm_promote'))
+diff --git a/entry/src/main/ets/pages/profile/MemberRestrictPage.ets b/entry/src/main/ets/pages/profile/MemberRestrictPage.ets
+index e35173a..26558a1 100644
+--- a/entry/src/main/ets/pages/profile/MemberRestrictPage.ets
++++ b/entry/src/main/ets/pages/profile/MemberRestrictPage.ets
+@@ -203,7 +203,7 @@ struct MemberRestrictPage {
+   header() {
+     Row({ space: 8 }) {
+       Button() {
+-        SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
++        SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(24).fontColor([COLOR_TEXT_PRIMARY]);
+       }.width(40).height(40).borderRadius(20).backgroundColor(Color.Transparent)
+       .onClick((): void => { this.getUIContext().getRouter().back(); });
+       Text($r('app.string.mm_restrict')).fontSize(22).fontWeight(FontWeight.Bold)
+diff --git a/entry/src/main/ets/pages/profile/ProfilePage.ets b/entry/src/main/ets/pages/profile/ProfilePage.ets
+index 1d752b7..ed806a8 100644
+--- a/entry/src/main/ets/pages/profile/ProfilePage.ets
++++ b/entry/src/main/ets/pages/profile/ProfilePage.ets
+@@ -1592,7 +1592,7 @@ export struct ProfilePage {
+     Column({ space: 10 }) {
+       Row() {
+         Row() {
+-          SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(22).fontColor([COLOR_TEXT_PRIMARY]);
++          SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(22).fontColor([COLOR_TEXT_PRIMARY]);
+         }
+         .width(44).height(44).borderRadius(22)
+         .justifyContent(FlexAlign.Center)
+@@ -1600,7 +1600,7 @@ export struct ProfilePage {
+         .onClick((): void => { this.goBack(); });
+         Blank().layoutWeight(1);
+         Row() {
+-          SymbolGlyph($r('sys.symbol.more')).fontSize(22).fontColor([COLOR_TEXT_PRIMARY]);
++          SymbolGlyph($r('sys.symbol.dot_grid_2x2')).fontSize(22).fontColor([COLOR_TEXT_PRIMARY]);
+         }
+         .width(44).height(44).borderRadius(22)
+         .justifyContent(FlexAlign.Center)
+@@ -1691,10 +1691,10 @@ export struct ProfilePage {
+       // 返回 / 更多按钮的浮层：画在 List 之外，不参与列表的边缘虚化。
+       // 位置与原来 header() 里那一行完全一致（topSafe + 8，左右 pageMargin）。
+       Row() {
+-        this.circleButton('sys.symbol.chevron_left', () => { this.goBack(); });
++        this.circleButton('sys.symbol.chevron_backward', () => { this.goBack(); });
+         Blank().layoutWeight(1);
+         if (this.moreMenuItems().length > 0) {
+-          this.circleButton('sys.symbol.more', () => { this.openMoreMenu(); });
++          this.circleButton('sys.symbol.dot_grid_2x2', () => { this.openMoreMenu(); });
+         }
+       }
+       .width('100%')
+diff --git a/entry/src/main/ets/pages/web/MiniAppPage.ets b/entry/src/main/ets/pages/web/MiniAppPage.ets
+index 096eabb..2d7deda 100644
+--- a/entry/src/main/ets/pages/web/MiniAppPage.ets
++++ b/entry/src/main/ets/pages/web/MiniAppPage.ets
+@@ -327,7 +327,7 @@ struct MiniAppPage {
+   header() {
+     Row({ space: 10 }) {
+       if (this.backVisible) {
+-        Button() { SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(20).fontColor([this.headerInk()]); }
++        Button() { SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(20).fontColor([this.headerInk()]); }
+           .width(40).height(40).borderRadius(20).headerGlass().onClick((): void => this.back());
+       }
+       Column({ space: 2 }) {

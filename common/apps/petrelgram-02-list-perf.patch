@@ -1,0 +1,236 @@
+diff --git a/entry/src/main/ets/pages/chatlist/ChatListFreeze.ets b/entry/src/main/ets/pages/chatlist/ChatListFreeze.ets
+index ee6c160..1833519 100644
+--- a/entry/src/main/ets/pages/chatlist/ChatListFreeze.ets
++++ b/entry/src/main/ets/pages/chatlist/ChatListFreeze.ets
+@@ -18,6 +18,18 @@ export const CHAT_LIST_TOUCH_HOLD: string = 'chatListTouchHold';
+ // Shared minute clock for every visible chat row. The parent page owns one
+ // timer instead of each folder list starting its own interval.
+ export const CHAT_LIST_NOW: string = 'chatListNowSec';
++// AppStorage flag: true while a chat list scrolls or flings (until its 120ms
++// settle). Rows read it with AppStorage.get, not @StorageProp, so flipping it
++// rebuilds nothing; their pulse timers skip ticks while it is set, since each
++// tick dirties the row and its cached surface mid-fling.
++export const CHAT_LIST_MOVING: string = 'chatListMoving';
++
++// Called on every scroll frame; only a change is written.
++export function setChatListMoving(moving: boolean): void {
++  if (AppStorage.get<boolean>(CHAT_LIST_MOVING) !== moving) {
++    AppStorage.setOrCreate<boolean>(CHAT_LIST_MOVING, moving);
++  }
++}
+ 
+ // Read the source of truth as well as watching it in views: a frozen component
+ // can receive Store callbacks before its StorageProp watcher is delivered.
+diff --git a/entry/src/main/ets/pages/chatlist/ChatListView.ets b/entry/src/main/ets/pages/chatlist/ChatListView.ets
+index ab33aa6..6f09a5f 100644
+--- a/entry/src/main/ets/pages/chatlist/ChatListView.ets
++++ b/entry/src/main/ets/pages/chatlist/ChatListView.ets
+@@ -12,7 +12,7 @@ import { KEY_FORCE_SINGLE_COLUMN } from '../../store/AppSettings';
+ import { ChatListDataSource } from './ChatListDataSource';
+ import { ChatListRowKeyCache } from './chatListRowKeys';
+ import { guardKey } from '../../util/keyGuard';
+-import { CHAT_LIST_TOUCH_HOLD, CHAT_MENU_OPEN, chatListInForeground, chatListPublicationMode, ChatListFreeze, chatOrderUnchanged, chatRevisionsUnchanged, contentOnlyUpdate, updateTouchHold } from './ChatListFreeze';
++import { CHAT_LIST_TOUCH_HOLD, CHAT_MENU_OPEN, setChatListMoving, chatListInForeground, chatListPublicationMode, ChatListFreeze, chatOrderUnchanged, chatRevisionsUnchanged, contentOnlyUpdate, updateTouchHold } from './ChatListFreeze';
+ import { CHAT_LIST_FLUSH_EPOCH, CHAT_LIST_RENDER_ACTIVE_KEY } from '../../util/chatListRenderGate';
+ import { rememberListPosition, recallListPosition } from '../../util/chatListPosition';
+ import { BLUR_MAX_VP, EDGE_OVERLAY_VP, edgeBlurStops } from '../../util/scrollEdgeBlur';
+@@ -291,6 +291,7 @@ export struct ChatListView {
+         this.scrollSettleTimer = -1;
+       }
+       this.listMoving = true;
++      setChatListMoving(true);
+       this.listSubscription?.refresh();
+       return;
+     }
+@@ -300,6 +301,7 @@ export struct ChatListView {
+     this.scrollSettleTimer = setTimeout((): void => {
+       this.scrollSettleTimer = -1;
+       this.listMoving = false;
++      setChatListMoving(false);
+       this.listSubscription?.refresh();
+       if (this.flushBypass && !this.renderActive) {
+         this.drainContentOnly();
+@@ -586,6 +588,7 @@ export struct ChatListView {
+       this.flushBypassTimer = -1;
+     }
+     this.listMoving = false;
++    setChatListMoving(false);
+     this.listSubscription?.close();
+     this.listSubscription = null;
+   }
+diff --git a/entry/src/main/ets/pages/chatlist/ChatRow.ets b/entry/src/main/ets/pages/chatlist/ChatRow.ets
+index 83ee949..7a6a756 100644
+--- a/entry/src/main/ets/pages/chatlist/ChatRow.ets
++++ b/entry/src/main/ets/pages/chatlist/ChatRow.ets
+@@ -5,6 +5,7 @@ import { showToast } from '../../util/toast';
+ import { unreadBadgeText } from '../../util/unreadBadge';
+ import { homeCardMarginVp } from '../../util/pageMargin';
+ import { CHATLIST_PREVIEW_THUMB_ENABLED, stripPreviewIcon } from '../../util/formatPreview';
++import { miniThumbPixels } from '../../util/miniThumbCache';
+ import { DRAFT_EPOCH, localDraftPreview } from '../../store/DraftStore';
+ import { router, promptAction, SymbolGlyphModifier } from '@kit.ArkUI';
+ import { GLASS_OUTLINE_COLOR } from '../../util/bubbleTail';
+@@ -27,7 +28,7 @@ import {
+   KEY_POWER_ACTIVE, KEY_POWER_PARTICLES, KEY_POWER_SMOOTH_TRANSITIONS,
+   KEY_THREE_LINES, powerAnimationDuration
+ } from '../../store/AppSettings';
+-import { CHAT_LIST_NOW, CHAT_MENU_OPEN } from './ChatListFreeze';
++import { CHAT_LIST_MOVING, CHAT_LIST_NOW, CHAT_MENU_OPEN } from './ChatListFreeze';
+ import { CHAT_LIST_RENDER_ACTIVE_KEY } from '../../util/chatListRenderGate';
+ import { navigateToDirectMessagesTopics, navigateToForumTopics } from '../../util/profileNav';
+ import {
+@@ -214,7 +215,8 @@ export struct ChatRow {
+       return;
+     }
+     this.livePulseTimer = setInterval((): void => {
+-      if (!(AppStorage.get<boolean>(CHAT_LIST_RENDER_ACTIVE_KEY) ?? true)) {
++      if (!(AppStorage.get<boolean>(CHAT_LIST_RENDER_ACTIVE_KEY) ?? true) ||
++        AppStorage.get<boolean>(CHAT_LIST_MOVING) === true) {
+         return;
+       }
+       if (this.powerSaving || !this.particlesEnabled) {
+@@ -246,7 +248,8 @@ export struct ChatRow {
+         this.typingDotPhase = 0;
+         return;
+       }
+-      if (!(AppStorage.get<boolean>(CHAT_LIST_RENDER_ACTIVE_KEY) ?? true)) {
++      if (!(AppStorage.get<boolean>(CHAT_LIST_RENDER_ACTIVE_KEY) ?? true) ||
++        AppStorage.get<boolean>(CHAT_LIST_MOVING) === true) {
+         return;
+       }
+       if (this.powerSaving || !this.liveEffects) {
+@@ -876,9 +879,9 @@ export struct ChatRow {
+                   }
+                   // 预览小图（issue #202）：minithumbnail 的 data URL，18vp，只在有媒体时多这一个节点。
+                   if (CHATLIST_PREVIEW_THUMB_ENABLED && this.row.snapshot.chat.lastMessageThumb !== '') {
+-                    Image(this.row.snapshot.chat.lastMessageThumb).draggable(false)
++                    Image(miniThumbPixels(this.row.snapshot.chat.lastMessageThumb)).draggable(false)
+                       .width(18).height(18).borderRadius(3).objectFit(ImageFit.Cover)
+-                      .sourceSize({ width: 54, height: 54 }).autoResize(true)
++                      .interpolation(ImageInterpolation.Low)
+                       .margin({ right: 5, top: 1 }).flexShrink(0);
+                   }
+                   Text(this.draftPreview() !== '' ? this.draftPreview()
+diff --git a/entry/src/main/ets/pages/chatlist/ForumSplitView.ets b/entry/src/main/ets/pages/chatlist/ForumSplitView.ets
+index 894c4e4..8cc45d2 100644
+--- a/entry/src/main/ets/pages/chatlist/ForumSplitView.ets
++++ b/entry/src/main/ets/pages/chatlist/ForumSplitView.ets
+@@ -8,6 +8,7 @@ import { ForumTopicsStore } from '../../store/ForumTopicsStore';
+ import { scopeMutedForKind, SCOPE_MUTE_EPOCH } from '../../store/ScopeMuteStore';
+ import { ForumTopicRow, startsWithEmojiSymbol } from '../../util/forumTopicModel';
+ import { CHATLIST_PREVIEW_THUMB_ENABLED, stripPreviewIcon } from '../../util/formatPreview';
++import { miniThumbPixels } from '../../util/miniThumbCache';
+ import { formatTime } from '../../util/formatTime';
+ import { unreadBadgeText } from '../../util/unreadBadge';
+ import {
+@@ -863,14 +864,13 @@ export struct ForumSplitTopicRow {
+               .flexShrink(0);
+           }
+           if (CHATLIST_PREVIEW_THUMB_ENABLED && this.lastMessageThumb !== '') {
+-            Image(this.lastMessageThumb)
++            Image(miniThumbPixels(this.lastMessageThumb))
+               .draggable(false)
+               .width(18)
+               .height(18)
+               .borderRadius(3)
+               .objectFit(ImageFit.Cover)
+-              .sourceSize({ width: 54, height: 54 })
+-              .autoResize(true)
++              .interpolation(ImageInterpolation.Low)
+               .margin({ right: 5 })
+               .flexShrink(0);
+           }
+diff --git a/entry/src/main/ets/pages/chatlist/MainTabBody.ets b/entry/src/main/ets/pages/chatlist/MainTabBody.ets
+index 3c21958..825a2e6 100644
+--- a/entry/src/main/ets/pages/chatlist/MainTabBody.ets
++++ b/entry/src/main/ets/pages/chatlist/MainTabBody.ets
+@@ -32,7 +32,7 @@ import { ChatListDataSource } from './ChatListDataSource';
+ import { ChatListRowKeyCache } from './chatListRowKeys';
+ import { guardKey } from '../../util/keyGuard';
+ import { HOME_CARD_INSET_VP } from '../../util/listCardGeometry';
+-import { CHAT_LIST_TOUCH_HOLD, CHAT_MENU_OPEN, chatListInForeground, chatListPublicationMode, ChatListFreeze, chatOrderUnchanged, chatRevisionsUnchanged, contentOnlyUpdate, updateTouchHold } from './ChatListFreeze';
++import { CHAT_LIST_TOUCH_HOLD, CHAT_MENU_OPEN, setChatListMoving, chatListInForeground, chatListPublicationMode, ChatListFreeze, chatOrderUnchanged, chatRevisionsUnchanged, contentOnlyUpdate, updateTouchHold } from './ChatListFreeze';
+ import { CHAT_LIST_FLUSH_EPOCH, CHAT_LIST_RENDER_ACTIVE_KEY } from '../../util/chatListRenderGate';
+ import {
+   KEY_POWER_SMOOTH_TRANSITIONS, KEY_ROW_SWIPE_ACTIONS, powerAnimationDuration
+@@ -189,6 +189,7 @@ export struct MainTabBody {
+         this.scrollSettleTimer = -1;
+       }
+       this.listMoving = true;
++      setChatListMoving(true);
+       this.listSubscription?.refresh();
+       return;
+     }
+@@ -198,6 +199,7 @@ export struct MainTabBody {
+     this.scrollSettleTimer = setTimeout((): void => {
+       this.scrollSettleTimer = -1;
+       this.listMoving = false;
++      setChatListMoving(false);
+       this.listSubscription?.refresh();
+       if (this.flushBypass && !this.renderActive) {
+         this.drainContentOnly();
+@@ -422,6 +424,7 @@ export struct MainTabBody {
+       this.flushBypassTimer = -1;
+     }
+     this.listMoving = false;
++    setChatListMoving(false);
+     this.archiveRefreshPending = false;
+     this.listSubscription?.close();
+     this.listSubscription = null;
+diff --git a/entry/src/main/ets/util/miniThumbCache.ets b/entry/src/main/ets/util/miniThumbCache.ets
+new file mode 100644
+index 0000000..a52610d
+--- /dev/null
++++ b/entry/src/main/ets/util/miniThumbCache.ets
+@@ -0,0 +1,51 @@
++import { image } from '@kit.ImageKit';
++import { util } from '@kit.ArkTS';
++import { logE } from './log';
++
++// Decoded minithumbnails, keyed by their data URL.
++//
++// Image(dataUrl) has no decoded-image cache behind it (the app never turns on
++// ArkUI's), so a recycled chat row decodes its ~40px JPEG again every time it
++// is rebound: on device, flinging the home list decoded the same ~14 previews
++// 217 times at ~4.7ms each on the image thread, and every decode re-dirtied
++// the row. Decoding the ~1KB JPEG here takes a fraction of a millisecond, once;
++// after that a rebind hands Image the same PixelMap and nothing is reloaded.
++//
++// 128 entries × 40×40×4 bytes ≈ 0.8MB.
++const MAX_ENTRIES: number = 128;
++const PREFIX: string = 'base64,';
++
++const cache: Map<string, image.PixelMap> = new Map();
++const base64: util.Base64Helper = new util.Base64Helper();
++
++// The PixelMap for a `data:image/...;base64,` URL, or the URL itself when it
++// can't be decoded (Image then loads it as before).
++export function miniThumbPixels(dataUrl: string): image.PixelMap | string {
++  const hit = cache.get(dataUrl);
++  if (hit !== undefined) {
++    // Map keeps insertion order: re-inserting makes this the newest entry.
++    cache.delete(dataUrl);
++    cache.set(dataUrl, hit);
++    return hit;
++  }
++  const at = dataUrl.indexOf(PREFIX);
++  if (at < 0) {
++    return dataUrl;
++  }
++  try {
++    const bytes: Uint8Array = base64.decodeSync(dataUrl.substring(at + PREFIX.length));
++    const source = image.createImageSource(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
++    const pixels = source.createPixelMapSync();
++    source.release();
++    cache.set(dataUrl, pixels);
++    if (cache.size > MAX_ENTRIES) {
++      // Not released: a row that was just rebound may still be drawing it; the
++      // GC frees it once nothing holds it.
++      cache.delete(cache.keys().next().value as string);
++    }
++    return pixels;
++  } catch (e) {
++    logE('miniThumbCache', `decode failed: ${e}`);
++    return dataUrl;
++  }
++}

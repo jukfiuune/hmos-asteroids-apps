@@ -1,0 +1,23 @@
+diff --git a/entry/src/main/ets/pages/main/MainScreen.ets b/entry/src/main/ets/pages/main/MainScreen.ets
+index cb8a797..96090be 100644
+--- a/entry/src/main/ets/pages/main/MainScreen.ets
++++ b/entry/src/main/ets/pages/main/MainScreen.ets
+@@ -1102,7 +1102,9 @@ export struct MainScreen {
+         barVisible: this.dockBarOpen && !this.leftFloatingDock() && !this.immersiveDockHidden()
+       }))
+       .scrollable(false)
+-      .animationDuration(powerAnimationDuration(KEY_POWER_SMOOTH_TRANSITIONS, DOCK_SWITCH_DURATION))
++      // Pages swap at once, as in the system apps; the 240 ms slide between tabs is gone (asteroids port). The dock's
++      // selection still glides (the animateTo around this.tab).
++      .animationDuration(0)
+       .onAnimationStart((_currentIndex: number, targetIndex: number) => {
+         const target: number = logicalTabIndex(targetIndex, this.showContactsTab);
+         if (this.tab !== target) {
+@@ -1169,6 +1171,7 @@ export struct MainScreen {
+           barVisible: this.dockVisible()
+         }))
+         .scrollable(false)
++        .animationDuration(0)
+         .onChange((index: number) => {
+           const logical: number = logicalTabIndex(index, this.showContactsTab);
+           if (this.tab !== logical) {

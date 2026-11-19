@@ -1,0 +1,6 @@
+{
+  "subtypes": [
+    { "id": "en", "label": "$string:english", "locale": "en-US", "mode": "lower", "icon": "$media:icon" },
+    { "id": "bg_phonetic", "label": "$string:bulgarian", "locale": "bg-BG", "mode": "lower", "icon": "$media:icon" }
+  ]
+}

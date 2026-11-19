@@ -1,0 +1,25 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "deviceTypes": ["default"],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "extensionAbilities": [
+      {
+        "name": "InputMethodService",
+        "srcEntry": "./ets/service/InputMethodService.ets",
+        "type": "inputMethod",
+        "exported": true,
+        "label": "$string:ime_label",
+        "icon": "$media:icon",
+        "description": "$string:ime_desc",
+        "metadata": [
+          { "name": "ohos.extension.input_method", "resource": "$profile:input_method_config" }
+        ]
+      }
+    ]
+  }
+}

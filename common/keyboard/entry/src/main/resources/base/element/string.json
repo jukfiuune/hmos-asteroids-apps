@@ -1,0 +1,48 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Keyboard"
+    },
+    {
+      "name": "ime_label",
+      "value": "Asteroids Keyboard"
+    },
+    {
+      "name": "ime_desc",
+      "value": "English and Bulgarian phonetic"
+    },
+    {
+      "name": "english",
+      "value": "English"
+    },
+    {
+      "name": "bulgarian",
+      "value": "Български (фонетична)"
+    },
+    {
+      "name": "enter_go",
+      "value": "Go"
+    },
+    {
+      "name": "enter_search",
+      "value": "Search"
+    },
+    {
+      "name": "enter_send",
+      "value": "Send"
+    },
+    {
+      "name": "enter_next",
+      "value": "Next"
+    },
+    {
+      "name": "enter_done",
+      "value": "Done"
+    },
+    {
+      "name": "enter_previous",
+      "value": "Back"
+    }
+  ]
+}

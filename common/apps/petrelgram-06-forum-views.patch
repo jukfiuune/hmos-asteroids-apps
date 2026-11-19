@@ -1,0 +1,695 @@
+diff --git a/entry/src/main/ets/pages/chat/ForumTopicsPage.ets b/entry/src/main/ets/pages/chat/ForumTopicsPage.ets
+index c094905..d6c9434 100644
+--- a/entry/src/main/ets/pages/chat/ForumTopicsPage.ets
++++ b/entry/src/main/ets/pages/chat/ForumTopicsPage.ets
+@@ -1,6 +1,6 @@
+ import { showToast } from '../../util/toast';
+ import { collapseFloatingVideo } from '../../util/floatingVideoRuntime';
+-import { promptAction } from '@kit.ArkUI';
++import { promptAction, SymbolGlyphModifier } from '@kit.ArkUI';
+ import { getChatStore, getTdClient } from '../../tdkit/Globals';
+ import { TdObject, TdRequest, TdError } from '../../tdkit/TdTypes';
+ import { formatPreview, previewThumbOf } from '../../util/formatPreview';
+@@ -9,14 +9,16 @@ import {
+   sortTopicRows
+ } from '../../util/forumTopicModel';
+ import {
+-  COLOR_PAGE_BG, COLOR_PRIMARY, COLOR_SURFACE, COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY
++  COLOR_PAGE_BG, COLOR_SURFACE, COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY
+ } from '../../util/theme';
+ import { plural, str } from '../../util/strings';
+ import { LANGUAGE_EPOCH } from '../../util/appLanguage';
+ import { logChatNavFailure, navigateToChat } from '../../util/chatNav';
+ import { allocChatDestToken, markChatDestHidden, markChatDestShown } from '../../util/chatDestTracker';
+ import { logE } from '../../util/log';
+-import { HdsNavDestination } from '@kit.UIDesignKit';
++import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
++import { containerBlur, overlayMaterial } from '../../util/overlayMaterial';
++import { titleBarStyle } from '../../util/hdsTitleBar';
+ import { KeyedListDataSource } from '../common/KeyedListDataSource';
+ import { guardKey } from '../../util/keyGuard';
+ import { CHAT_LIST_NOW } from '../chatlist/ChatListFreeze';
+@@ -63,6 +65,7 @@ export struct ForumTopicsPage {
+   private unsubs: Array<() => void> = [];
+   // 话题列表的 LazyForEach 数据源（见 syncRowsData）。
+   private rowsData: KeyedListDataSource<TopicRow> = new KeyedListDataSource<TopicRow>('forum-topics');
++  private listScroller: ListScroller = new ListScroller();
+ 
+   aboutToAppear(): void {
+     // 留在这里的只有这一行：它与路由参数无关，且必须早于任何 load() 的回调
+@@ -232,8 +235,8 @@ export struct ForumTopicsPage {
+       title: $r('app.string.ft_delete_topic'),
+       message: str('ft_delete_confirm', row.name),
+       buttons: [
+-        { text: $r('app.string.cancel'), color: '#8E8E93' },
+-        { text: $r('app.string.delete'), color: '#E5484D' }
++        { text: $r('app.string.cancel'), color: $r('sys.color.font_emphasize') },
++        { text: $r('app.string.delete'), color: $r('sys.color.warning') }
+       ]
+     }).then((result): void => {
+       if (result.index !== 1) {
+@@ -248,40 +251,28 @@ export struct ForumTopicsPage {
+     });
+   }
+ 
+-  private showTopicMenu(row: TopicRow): void {
+-    if (row.isGeneral) {
+-      // General 话题不可删除/重命名，只支持置顶与隐藏（隐藏暂不做）。
+-      this.getUIContext().getPromptAction().showActionMenu({
+-        title: row.name,
+-        buttons: [{ text: row.isPinned ? $r('app.string.ft_unpin') : $r('app.string.ft_pin'), color: '#007AFF' }]
+-      }).then((result): void => {
+-        if (result.index === 0) {
+-          this.togglePinned(row);
+-        }
+-      }).catch((): void => {});
++  // A topic row's menu choice. Dialogs and the sheet wait for the menu to finish closing: one opened while the menu
++  // window is still going away can hang (ChatRow's MENU_DISMISS_MS).
++  private onTopicAction(threadId: number, action: string): void {
++    const row: TopicRow | undefined = this.rows.find((r: TopicRow): boolean => r.threadId === threadId);
++    if (row === undefined) {
+       return;
+     }
+-    this.getUIContext().getPromptAction().showActionMenu({
+-      title: row.name,
+-      buttons: [
+-        { text: row.isPinned ? $r('app.string.ft_unpin') : $r('app.string.ft_pin'), color: '#007AFF' },
+-        { text: row.isClosed ? $r('app.string.ft_reopen') : $r('app.string.ft_close_topic'), color: '#007AFF' },
+-        { text: $r('app.string.ft_rename'), color: '#007AFF' },
+-        { text: $r('app.string.ft_delete_topic'), color: '#E5484D' }
+-      ]
+-    }).then((result): void => {
+-      if (result.index === 0) {
+-        this.togglePinned(row);
+-      } else if (result.index === 1) {
+-        this.toggleClosed(row);
+-      } else if (result.index === 2) {
+-        this.renameTarget = row;
+-        this.pendingTopicName = row.name;
+-        this.showNameInput = true;
+-      } else if (result.index === 3) {
+-        this.confirmDelete(row);
+-      }
+-    }).catch((): void => {});
++    if (action === 'pin') {
++      this.togglePinned(row);
++    } else if (action === 'close') {
++      this.toggleClosed(row);
++    } else {
++      setTimeout((): void => {
++        if (action === 'rename') {
++          this.renameTarget = row;
++          this.pendingTopicName = row.name;
++          this.showNameInput = true;
++        } else if (action === 'delete') {
++          this.confirmDelete(row);
++        }
++      }, 150);
++    }
+   }
+ 
+   private renameTarget: TopicRow | null = null;
+@@ -331,30 +322,48 @@ export struct ForumTopicsPage {
+   @State showNameInput: boolean = false;
+   @State pendingTopicName: string = '';
+ 
++  // New topic / rename: a system sheet instead of a panel pinned over the list (asteroids port).
++  @Builder
++  nameSheet() {
++    Column({ space: 16 }) {
++      Text(this.renameTarget !== null ? $r('app.string.ft_rename_topic') : $r('app.string.ft_new_topic'))
++        .fontSize(20).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
++        .width('100%');
++      TextInput({ placeholder: $r('app.string.ft_topic_name'), text: this.pendingTopicName })
++        .fontSize(16).height(44)
++        .defaultFocus(true)
++        .onChange((value: string): void => {
++          this.pendingTopicName = value;
++        });
++      Row({ space: 12 }) {
++        Button($r('app.string.cancel')).buttonStyle(ButtonStyleMode.NORMAL).layoutWeight(1)
++          .onClick((): void => {
++            this.showNameInput = false;
++          });
++        Button(this.renameTarget !== null ? $r('app.string.save')
++          : (this.creating ? $r('app.string.creating_dots') : $r('app.string.create')))
++          .buttonStyle(ButtonStyleMode.EMPHASIZED).layoutWeight(1)
++          .enabled(!this.creating && this.pendingTopicName.trim() !== '')
++          .onClick((): void => {
++            const name: string = this.pendingTopicName;
++            const target: TopicRow | null = this.renameTarget;
++            this.showNameInput = false;
++            if (target !== null) {
++              this.renameTopic(target, name);
++            } else {
++              this.createTopic(name);
++            }
++          });
++      }
++      .width('100%');
++    }
++    .width('100%')
++    .padding({ left: 24, right: 24, top: 8, bottom: 24 });
++  }
++
+   build() {
+     HdsNavDestination() {
+     Column() {
+-      Row({ space: 6 }) {
+-        Row() {
+-          SymbolGlyph($r('sys.symbol.chevron_backward')).fontSize(25).fontColor([COLOR_TEXT_PRIMARY]);
+-        }
+-        .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+-        .onClick((): void => this.goBack());
+-        Column({ space: 1 }) {
+-          Text(this.title).fontSize(19).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
+-            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis });
+-          Text(plural('ft_topic_count', this.rows.length, this.rows.length)).fontSize(11).fontColor(COLOR_TEXT_SECONDARY);
+-        }
+-        .alignItems(HorizontalAlign.Start).layoutWeight(1);
+-        Row() {
+-          SymbolGlyph($r('sys.symbol.plus')).fontSize(22).fontColor([COLOR_TEXT_PRIMARY]);
+-        }
+-        .width(44).height(44).borderRadius(22).justifyContent(FlexAlign.Center)
+-        .onClick((): void => {
+-          this.showNameInput = true;
+-        });
+-      }
+-      .width('100%').padding({ left: 8, right: 8, top: this.topSafe + 6, bottom: 6 });
+       if (this.loadState === 'loading') {
+         Column() {
+           LoadingProgress().width(34).height(34);
+@@ -370,12 +379,14 @@ export struct ForumTopicsPage {
+         }
+         .width('100%').layoutWeight(1).justifyContent(FlexAlign.Center);
+       } else {
+-        List() {
++        List({ scroller: this.listScroller }) {
+           // LazyForEach + 复用行（ForumSplitTopicRow）：大话题群有上百个话题，原来 ForEach 一次全建。
+           // 点击和长按挂在 ListItem 上，闭包随行 key 重建。
+           LazyForEach(this.rowsData, (row: TopicRow) => {
+             ListItem() {
+               ForumSplitTopicRow({
++                threadId: row.threadId,
++                onTopicAction: (id: number, action: string): void => this.onTopicAction(id, action),
+                 name: row.name,
+                 iconColor: row.iconColor,
+                 iconCustomEmojiPath: row.iconCustomEmojiPath ?? '',
+@@ -393,61 +404,50 @@ export struct ForumTopicsPage {
+                 nowSec: this.nowSec
+               });
+             }
+-            .onClick((): void => this.openTopic(row))
+-            .gesture(LongPressGesture({ fingers: 1, repeat: false })
+-              .onAction((): void => this.showTopicMenu(row)));
++            .onClick((): void => this.openTopic(row));
+           }, (row: TopicRow, index: number): string =>
+             guardKey(this.rowsData.keyTableId, index, topicRowKey(row)));
+         }
+         .width('100%').layoutWeight(1).cachedCount(4)
+-        .backgroundColor(COLOR_SURFACE)
+         .padding({ bottom: this.bottomSafe + 12 });
+       }
+-      if (this.showNameInput) {
+-        Column({ space: 10 }) {
+-          Text(this.renameTarget !== null ? $r('app.string.ft_rename_topic') : $r('app.string.ft_new_topic'))
+-            .fontSize(16).fontWeight(FontWeight.Medium).fontColor(COLOR_TEXT_PRIMARY);
+-          TextInput({ placeholder: $r('app.string.ft_topic_name'), text: this.pendingTopicName })
+-            .fontSize(15).height(42)
+-            .onChange((value: string): void => {
+-              this.pendingTopicName = value;
+-            });
+-          Row({ space: 12 }) {
+-            Button($r('app.string.cancel')).buttonStyle(ButtonStyleMode.NORMAL).layoutWeight(1)
+-              .onClick((): void => {
+-                this.showNameInput = false;
+-                this.pendingTopicName = '';
+-                this.renameTarget = null;
+-              });
+-            Button(this.renameTarget !== null ? $r('app.string.save') : (this.creating ? $r('app.string.creating_dots') : $r('app.string.create')))
+-              .backgroundColor(COLOR_PRIMARY).layoutWeight(1)
+-              .enabled(!this.creating && this.pendingTopicName.trim() !== '')
+-              .onClick((): void => {
+-                const name: string = this.pendingTopicName;
+-                const target: TopicRow | null = this.renameTarget;
+-                this.showNameInput = false;
+-                this.pendingTopicName = '';
+-                this.renameTarget = null;
+-                if (target !== null) {
+-                  this.renameTopic(target, name);
+-                } else {
+-                  this.createTopic(name);
+-                }
+-              });
+-          }
+-          .width('100%');
+-        }
+-        .width('100%')
+-        .padding({ left: 16, right: 16, top: 12, bottom: this.bottomSafe + 16 })
+-        .backgroundColor(COLOR_SURFACE)
+-        .borderRadius({ topLeft: 16, topRight: 16 });
+-      }
+     }
+     .width('100%').height('100%').backgroundColor(COLOR_PAGE_BG)
+-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]);
++    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
++    .bindSheet($$this.showNameInput, this.nameSheet(), {
++      height: SheetSize.FIT_CONTENT,
++      backgroundColor: COLOR_SURFACE,
++      blurStyle: containerBlur('dialog'),
++      systemMaterial: overlayMaterial('dialog'),
++      onDisappear: (): void => {
++        this.pendingTopicName = '';
++        this.renameTarget = null;
++      }
++    });
+     }
+-    // 本页自绘标题栏（返回键 + 群名 + 话题数那一条），不要 HDS 的。
+-    .hideTitleBar(true)
++    // The system title bar (back, group name, topic count, + for a new topic) instead of a hand-drawn header row
++    // (asteroids port).
++    .titleBar({
++      avoidLayoutSafeArea: true,
++      enableComponentSafeArea: false,
++      style: titleBarStyle(Color.Transparent, $r('app.color.text_primary'), false, false),
++      content: {
++        title: { mainTitle: this.title, subTitle: plural('ft_topic_count', this.rows.length, this.rows.length) },
++        backIcon: { action: (): void => { this.goBack(); } },
++        menu: {
++          value: [{
++            content: {
++              icon: $r('sys.symbol.plus'),
++              label: $r('app.string.ft_new_topic'),
++              isEnabled: true,
++              action: (): void => { this.showNameInput = true; }
++            }
++          }]
++        }
++      }
++    })
++    .titleMode(HdsNavDestinationTitleMode.MINI)
++    .bindToScrollable([this.listScroller])
+     .onBackPressed((): boolean => collapseFloatingVideo())
+     .onReady((ctx: NavDestinationContext): void => {
+       this.navStack = ctx.pathStack;
+diff --git a/entry/src/main/ets/pages/chatlist/ForumSplitView.ets b/entry/src/main/ets/pages/chatlist/ForumSplitView.ets
+index 8cc45d2..0d8cbf2 100644
+--- a/entry/src/main/ets/pages/chatlist/ForumSplitView.ets
++++ b/entry/src/main/ets/pages/chatlist/ForumSplitView.ets
+@@ -26,11 +26,13 @@ import { AvatarView } from './AvatarView';
+ import { CHAT_LIST_NOW } from './ChatListFreeze';
+ import {
+   COLOR_DIVIDER, COLOR_ICON_SECONDARY, COLOR_MUTED_BADGE, COLOR_ON_PRIMARY,
+-  COLOR_PRIMARY, COLOR_SURFACE, COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY
++  COLOR_PRIMARY, COLOR_SURFACE, COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, KEY_APP_DARK
+ } from '../../util/theme';
+ import { APPEARANCE_EPOCH } from '../../util/appearance';
+ import { LANGUAGE_EPOCH } from '../../util/appLanguage';
+-import { overlayMaterial } from '../../util/overlayMaterial';
++import { containerBlur, overlayMaterial, plainBackdropBlur, plainGlassFill } from '../../util/overlayMaterial';
++import { hdsVisualEffect } from '../../util/hdsPointLight';
++import { chromeOutline } from '../../util/chromeOutline';
+ import { str } from '../../util/strings';
+ import { logE } from '../../util/log';
+ 
+@@ -194,17 +196,32 @@ export struct ForumTopHeaderBar {
+     }
+   }
+ 
++  @StorageProp(KEY_APP_DARK) private appDark: boolean = false;
++
++  // The chat header's glass (ChatHeader's back button and identity capsule): back, title, search and menu each float
++  // in their own glass shape, as inside a group chat, instead of sitting bare on the bar (asteroids port).
++  @Styles
++  glassChrome() {
++    .backgroundColor(plainGlassFill($r('app.color.surface')))
++    .shadow({ radius: this.appDark ? 0 : 4, color: this.appDark ? '#00000000' : '#12000000', offsetX: 0, offsetY: this.appDark ? 0 : 1 })
++    .backdropBlur(plainBackdropBlur('bar'))
++    .visualEffect(hdsVisualEffect('bar', !this.appDark))
++    .border(chromeOutline(this.appDark))
++    .clip(this.appDark)
++  }
++
+   build() {
+     Row({ space: 6 }) {
+       if (this.chatId !== 0) {
+         // 返回按钮（触发抽屉右滑退出动画回到常规会话列表）
+         Row() {
+-          SymbolGlyph($r('sys.symbol.arrow_left'))
++          SymbolGlyph($r('sys.symbol.chevron_backward'))
+             .fontSize(22)
+             .fontColor([COLOR_TEXT_PRIMARY]);
+         }
+         .width(42).height(42).borderRadius(21)
+         .justifyContent(FlexAlign.Center)
++        .glassChrome()
+         .onClick((): void => {
+           if (this.searching) {
+             this.searching = false;
+@@ -226,9 +243,9 @@ export struct ForumTopHeaderBar {
+             });
+         } else {
+           // 群头像 + 群标题 + 静音图标 + 成员数副标题（点击进入群资料页）
+-          Row({ space: 10 }) {
++          Row({ space: 8 }) {
+             AvatarView({
+-              avatarSize: 40,
++              avatarSize: 34,
+               avatarPath: this.chatAvatarPath,
+               initials: this.chatInitials,
+               colorSeed: this.chatId,
+@@ -237,8 +254,8 @@ export struct ForumTopHeaderBar {
+             Column({ space: 2 }) {
+               Row({ space: 4 }) {
+                 Text(this.chatTitle)
+-                  .fontSize(17)
+-                  .fontWeight(FontWeight.Bold)
++                  .fontSize(16)
++                  .fontWeight(FontWeight.Medium)
+                   .fontColor(COLOR_TEXT_PRIMARY)
+                   .maxLines(1)
+                   .textOverflow({ overflow: TextOverflow.Ellipsis })
+@@ -265,6 +282,10 @@ export struct ForumTopHeaderBar {
+             .layoutWeight(1);
+           }
+           .layoutWeight(1)
++          .height(42)
++          .padding({ left: 4, right: 12 })
++          .borderRadius(21)
++          .glassChrome()
+           .alignItems(VerticalAlign.Center)
+           .onClick((): void => {
+             if (this.chatId !== 0) {
+@@ -279,8 +300,9 @@ export struct ForumTopHeaderBar {
+             .fontSize(21)
+             .fontColor([COLOR_TEXT_PRIMARY]);
+         }
+-        .width(40).height(40).borderRadius(20)
++        .width(42).height(42).borderRadius(21)
+         .justifyContent(FlexAlign.Center)
++        .glassChrome()
+         .onClick((): void => {
+           if (this.searching) {
+             this.searching = false;
+@@ -291,15 +313,16 @@ export struct ForumTopHeaderBar {
+           }
+         });
+ 
+-        // 更多操作按钮（竖排三点 ⋮，与图 1 样式一致）
+-        Column({ space: 3.5 }) {
+-          Circle({ width: 3.6, height: 3.6 }).fill(COLOR_TEXT_PRIMARY);
+-          Circle({ width: 3.6, height: 3.6 }).fill(COLOR_TEXT_PRIMARY);
+-          Circle({ width: 3.6, height: 3.6 }).fill(COLOR_TEXT_PRIMARY);
++        // More actions: the system Messages app's menu symbol instead of three drawn dots (asteroids port).
++        Column() {
++          SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
++            .fontSize(20)
++            .fontColor([COLOR_TEXT_PRIMARY]);
+         }
+-        .width(40).height(40).borderRadius(20)
++        .width(42).height(42).borderRadius(21)
+         .justifyContent(FlexAlign.Center)
+         .alignItems(HorizontalAlign.Center)
++        .glassChrome()
+         .bindMenu(this.headerMoreMenu(), { systemMaterial: overlayMaterial('menu') });
+       }
+     }
+@@ -542,8 +565,8 @@ export struct ForumSplitView {
+       title: $r('app.string.ft_delete_topic'),
+       message: str('ft_delete_confirm', row.name),
+       buttons: [
+-        { text: $r('app.string.cancel'), color: '#8E8E93' },
+-        { text: $r('app.string.delete'), color: '#E5484D' }
++        { text: $r('app.string.cancel'), color: $r('sys.color.font_emphasize') },
++        { text: $r('app.string.delete'), color: $r('sys.color.warning') }
+       ]
+     }).then((result): void => {
+       if (result.index !== 1) {
+@@ -557,40 +580,28 @@ export struct ForumSplitView {
+     }).catch((): void => {});
+   }
+ 
+-  private showTopicMenu(row: ForumTopicRow): void {
+-    const prompt = this.getUIContext().getPromptAction();
+-    if (row.isGeneral) {
+-      prompt.showActionMenu({
+-        title: row.name,
+-        buttons: [{ text: row.isPinned ? $r('app.string.ft_unpin') : $r('app.string.ft_pin'), color: '#007AFF' }]
+-      }).then((result): void => {
+-        if (result.index === 0) {
+-          this.togglePinned(row);
+-        }
+-      }).catch((): void => {});
++  // A topic row's menu choice. Dialogs and the sheet wait for the menu to finish closing: one opened while the menu
++  // window is still going away can hang (ChatRow's MENU_DISMISS_MS).
++  private onTopicAction(threadId: number, action: string): void {
++    const row: ForumTopicRow | undefined = this.rows.find((r: ForumTopicRow): boolean => r.threadId === threadId);
++    if (row === undefined) {
+       return;
+     }
+-    prompt.showActionMenu({
+-      title: row.name,
+-      buttons: [
+-        { text: row.isPinned ? $r('app.string.ft_unpin') : $r('app.string.ft_pin'), color: '#007AFF' },
+-        { text: row.isClosed ? $r('app.string.ft_reopen') : $r('app.string.ft_close_topic'), color: '#007AFF' },
+-        { text: $r('app.string.ft_rename'), color: '#007AFF' },
+-        { text: $r('app.string.ft_delete_topic'), color: '#E5484D' }
+-      ]
+-    }).then((result): void => {
+-      if (result.index === 0) {
+-        this.togglePinned(row);
+-      } else if (result.index === 1) {
+-        this.toggleClosed(row);
+-      } else if (result.index === 2) {
+-        this.renameTarget = row;
+-        this.pendingTopicName = row.name;
+-        this.showNameInput = true;
+-      } else if (result.index === 3) {
+-        this.confirmDelete(row);
+-      }
+-    }).catch((): void => {});
++    if (action === 'pin') {
++      this.togglePinned(row);
++    } else if (action === 'close') {
++      this.toggleClosed(row);
++    } else {
++      setTimeout((): void => {
++        if (action === 'rename') {
++          this.renameTarget = row;
++          this.pendingTopicName = row.name;
++          this.showNameInput = true;
++        } else if (action === 'delete') {
++          this.confirmDelete(row);
++        }
++      }, 150);
++    }
+   }
+ 
+   private createTopic(name: string): void {
+@@ -619,6 +630,45 @@ export struct ForumSplitView {
+     });
+   }
+ 
++  // New topic / rename: a system sheet instead of a panel pinned over the list (asteroids port).
++  @Builder
++  nameSheet() {
++    Column({ space: 16 }) {
++      Text(this.renameTarget !== null ? $r('app.string.ft_rename_topic') : $r('app.string.ft_new_topic'))
++        .fontSize(20).fontWeight(FontWeight.Bold).fontColor(COLOR_TEXT_PRIMARY)
++        .width('100%');
++      TextInput({ placeholder: $r('app.string.ft_topic_name'), text: this.pendingTopicName })
++        .fontSize(16).height(44)
++        .defaultFocus(true)
++        .onChange((value: string): void => {
++          this.pendingTopicName = value;
++        });
++      Row({ space: 12 }) {
++        Button($r('app.string.cancel')).buttonStyle(ButtonStyleMode.NORMAL).layoutWeight(1)
++          .onClick((): void => {
++            this.showNameInput = false;
++          });
++        Button(this.renameTarget !== null ? $r('app.string.save')
++          : (this.creating ? $r('app.string.creating_dots') : $r('app.string.create')))
++          .buttonStyle(ButtonStyleMode.EMPHASIZED).layoutWeight(1)
++          .enabled(!this.creating && this.pendingTopicName.trim() !== '')
++          .onClick((): void => {
++            const name: string = this.pendingTopicName;
++            const target: ForumTopicRow | null = this.renameTarget;
++            this.showNameInput = false;
++            if (target !== null) {
++              this.renameTopic(target, name);
++            } else {
++              this.createTopic(name);
++            }
++          });
++      }
++      .width('100%');
++    }
++    .width('100%')
++    .padding({ left: 24, right: 24, top: 8, bottom: 24 });
++  }
++
+   build() {
+     Column() {
+       if (this.loadState === 'loading' && this.rows.length === 0) {
+@@ -639,6 +689,8 @@ export struct ForumSplitView {
+           LazyForEach(this.rowsData, (row: ForumTopicRow) => {
+             ListItem() {
+               ForumSplitTopicRow({
++                threadId: row.threadId,
++                onTopicAction: (id: number, action: string): void => this.onTopicAction(id, action),
+                 name: row.name,
+                 iconColor: row.iconColor,
+                 iconCustomEmojiPath: row.iconCustomEmojiPath ?? '',
+@@ -656,9 +708,7 @@ export struct ForumSplitView {
+                 nowSec: this.nowSec
+               });
+             }
+-            .onClick((): void => this.openTopic(row))
+-            .gesture(LongPressGesture({ fingers: 1, repeat: false })
+-              .onAction((): void => this.showTopicMenu(row)));
++            .onClick((): void => this.openTopic(row));
+           }, (row: ForumTopicRow, index: number): string =>
+             guardKey(this.rowsData.keyTableId, index, `${this.topicsStore.getChatId()}_${forumTopicRowKey(row)}`));
+         }
+@@ -672,52 +722,24 @@ export struct ForumSplitView {
+         .translate({ y: this.topicsSwitchOffsetY });
+       }
+ 
+-      if (this.showNameInput) {
+-        Column({ space: 10 }) {
+-          Text(this.renameTarget !== null ? $r('app.string.ft_rename_topic') : $r('app.string.ft_new_topic'))
+-            .fontSize(16).fontWeight(FontWeight.Medium).fontColor(COLOR_TEXT_PRIMARY);
+-          TextInput({ placeholder: $r('app.string.ft_topic_name'), text: this.pendingTopicName })
+-            .fontSize(15).height(42)
+-            .onChange((value: string): void => {
+-              this.pendingTopicName = value;
+-            });
+-          Row({ space: 12 }) {
+-            Button($r('app.string.cancel')).buttonStyle(ButtonStyleMode.NORMAL).layoutWeight(1)
+-              .onClick((): void => {
+-                this.showNameInput = false;
+-                this.pendingTopicName = '';
+-                this.renameTarget = null;
+-              });
+-            Button(this.renameTarget !== null ? $r('app.string.save')
+-              : (this.creating ? $r('app.string.creating_dots') : $r('app.string.create')))
+-              .backgroundColor(COLOR_PRIMARY).layoutWeight(1)
+-              .enabled(!this.creating && this.pendingTopicName.trim() !== '')
+-              .onClick((): void => {
+-                const name: string = this.pendingTopicName;
+-                const target: ForumTopicRow | null = this.renameTarget;
+-                this.showNameInput = false;
+-                this.pendingTopicName = '';
+-                this.renameTarget = null;
+-                if (target !== null) {
+-                  this.renameTopic(target, name);
+-                } else {
+-                  this.createTopic(name);
+-                }
+-              });
+-          }
+-          .width('100%');
+-        }
+-        .width('100%')
+-        .padding({ left: 16, right: 16, top: 12, bottom: this.bottomSafe + DOCK_CLEARANCE_VP })
+-        .backgroundColor(COLOR_SURFACE)
+-        .border({ width: { top: 0.5 }, color: COLOR_DIVIDER });
+-      }
+     }
+     .width(`calc(100% - ${FORUM_LEFT_RAIL_WIDTH}vp)`)
+     .height('100%')
+     .margin({ left: FORUM_LEFT_RAIL_WIDTH })
+     .backgroundColor(COLOR_SURFACE)
+-    .border({ width: { left: 0.5, top: 0.5 }, color: COLOR_DIVIDER })
++    // A rounded side panel over the chat list instead of a square one edged with hairlines (asteroids port).
++    .borderRadius({ topLeft: 20 })
++    .clip(true)
++    .bindSheet($$this.showNameInput, this.nameSheet(), {
++      height: SheetSize.FIT_CONTENT,
++      backgroundColor: COLOR_SURFACE,
++      blurStyle: containerBlur('dialog'),
++      systemMaterial: overlayMaterial('dialog'),
++      onDisappear: (): void => {
++        this.pendingTopicName = '';
++        this.renameTarget = null;
++      }
++    })
+     .shadow({ radius: 14, color: '#14000000', offsetX: -3, offsetY: 0 })
+     .enabled(this.drawerOpen)
+     .hitTestBehavior(this.drawerOpen ? HitTestMode.Default : HitTestMode.None)
+@@ -741,6 +763,10 @@ export struct ForumSplitView {
+ @Reusable
+ @Component
+ export struct ForumSplitTopicRow {
++  @Prop threadId: number = 0;
++  // Set once at construction and never changed: rows report which topic, so a reused row needs no new callback.
++  onTopicAction: (threadId: number, action: string) => void = (): void => {};
++  @State private menuShown: boolean = false;
+   @Prop name: string = '';
+   @Prop iconColor: string = '#6FB9F0';
+   @Prop iconCustomEmojiPath: string = '';
+@@ -757,6 +783,38 @@ export struct ForumSplitTopicRow {
+   @Prop topicMuted: boolean = false;
+   @Prop nowSec: number = 0;
+ 
++  // Long press: the glass context menu with system symbols, as the chat list rows have, instead of the old
++  // promptAction action sheet with iOS colours (asteroids port). The row owns the menu state (a parent's state doesn't
++  // reach a LazyForEach item's bindContextMenu) and reports the choice by thread id, which stays current on reuse.
++  @Builder
++  topicMenu() {
++    Menu() {
++      MenuItem({
++        symbolStartIcon: new SymbolGlyphModifier($r(this.isPinned ? 'sys.symbol.pin_slash' : 'sys.symbol.pin')),
++        content: this.isPinned ? $r('app.string.ft_unpin') : $r('app.string.ft_pin')
++      })
++        .onClick((): void => this.onTopicAction(this.threadId, 'pin'));
++      if (!this.isGeneral) {
++        MenuItem({
++          symbolStartIcon: new SymbolGlyphModifier($r(this.isClosed ? 'sys.symbol.lock_open' : 'sys.symbol.lock')),
++          content: this.isClosed ? $r('app.string.ft_reopen') : $r('app.string.ft_close_topic')
++        })
++          .onClick((): void => this.onTopicAction(this.threadId, 'close'));
++        MenuItem({
++          symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.pencil_line')),
++          content: $r('app.string.ft_rename')
++        })
++          .onClick((): void => this.onTopicAction(this.threadId, 'rename'));
++        MenuItem({
++          symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.trash')).fontColor([$r('sys.color.warning')]),
++          content: $r('app.string.ft_delete_topic')
++        })
++          .contentFontColor($r('sys.color.warning'))
++          .onClick((): void => this.onTopicAction(this.threadId, 'delete'));
++      }
++    }
++  }
++
+   @Builder
+   topicIcon() {
+     if (this.iconCustomEmojiPath !== '') {
+@@ -907,7 +965,22 @@ export struct ForumSplitTopicRow {
+     }
+     .width('100%')
+     .padding({ left: 14, right: 14, top: 11, bottom: 11 })
+-    .backgroundColor(COLOR_SURFACE)
+-    .border({ width: { bottom: 0.5 }, color: COLOR_DIVIDER });
++    // Flat rows without dividers, like the chat list (asteroids port).
++    .borderRadius(12)
++    .stateStyles({
++      normal: { .backgroundColor(Color.Transparent) },
++      pressed: { .backgroundColor($r('sys.color.interactive_pressed')) }
++    })
++    .gesture(LongPressGesture({ fingers: 1, repeat: false })
++      .onAction((): void => { this.menuShown = true; }))
++    .bindContextMenu(this.menuShown, this.topicMenu, {
++      borderRadius: 16,
++      backgroundColor: Color.Transparent,
++      backgroundBlurStyle: containerBlur('menu'),
++      systemMaterial: overlayMaterial('menu'),
++      preview: MenuPreviewMode.IMAGE,
++      previewBorderRadius: 12,
++      onDisappear: (): void => { this.menuShown = false; }
++    });
+   }
+ }

@@ -1,0 +1,172 @@
+diff --git a/entry/src/main/ets/pages/chatlist/ChatRow.ets b/entry/src/main/ets/pages/chatlist/ChatRow.ets
+index 7a6a756..5bb9607 100644
+--- a/entry/src/main/ets/pages/chatlist/ChatRow.ets
++++ b/entry/src/main/ets/pages/chatlist/ChatRow.ets
+@@ -43,7 +43,7 @@ import {
+   COLOR_MUTED_BADGE, mainCardFill, ROW_PAD_H, ROW_PAD_V
+ } from '../../util/theme';
+ import { A11Y_EPOCH, screenReaderOn } from '../../util/a11yState';
+-import { KEY_APP_BG_ON } from '../../store/AppSettings';
++import { KEY_APP_BG_ON, KEY_APP_BG_PICTURE } from '../../store/AppSettings';
+ import { folderColor } from '../../util/FolderVisuals';
+ import { plural, str } from '../../util/strings';
+ import {
+@@ -101,6 +101,7 @@ export struct ChatRow {
+   @StorageProp(SURFACE_GLASS_EPOCH) private surfaceGlassEpoch: number = 0;
+   // 由 MainScreen 算好写进 AppStorage 的「APP 壁纸生效中」，见 store/AppSettings。
+   @StorageProp(KEY_APP_BG_ON) private appWallpaperOn: boolean = false;
++  @StorageProp(KEY_APP_BG_PICTURE) private appWallpaperPicture: boolean = false;
+   @ObjectLink @Watch('onRowChanged') row: ChatListRowState;
+   // The list this row is being shown in — pinning is per-list, and the menu
+   // offers 取消归档 instead of 归档 inside the archive.
+@@ -582,7 +583,17 @@ export struct ChatRow {
+     return this.surfaceGlass && this.surfaceGlassEpoch >= 0;
+   }
+ 
++  // Flat rows, as in the system Messaging list (asteroids port): no card of their own, just the page behind them and
++  // the system's pressed highlight. Cards stay for glass, and over a picture wallpaper, where text needs the fill.
++  // Also one less clipped, filled layer per row for render_service to draw on every frame of a fling.
++  private rowFlat(): boolean {
++    return !this.rowGlassEnabled() && !this.appWallpaperPicture;
++  }
++
+   private rowFill(pressed: boolean): ResourceColor {
++    if (this.rowFlat()) {
++      return pressed ? $r('sys.color.interactive_pressed') : Color.Transparent;
++    }
+     if (!this.rowGlassEnabled()) {
+       // **不走玻璃就是实底。**
+       //
+@@ -994,7 +1005,7 @@ export struct ChatRow {
+       // 无壁纸时保持原来的系统材质表现；隐藏页签才暂停壁纸背后的实时采样。
+       .attributeModifier(materialModifierWhen('card', this.rowGlassEnabled() &&
+         (!this.appWallpaperOn || this.liveEffects)))
+-      .clip(true)
++      .clip(!this.rowFlat())
+       .constraintSize({ minHeight: this.spec().minHeight })
+       .padding({ left: HOME_CARD_INSET_VP, right: ROW_PAD_H, top: ROW_PAD_V, bottom: ROW_PAD_V })
+       .alignItems(VerticalAlign.Center)
+diff --git a/entry/src/main/ets/pages/main/ContactRowView.ets b/entry/src/main/ets/pages/main/ContactRowView.ets
+index 8bed6d0..b00ce68 100644
+--- a/entry/src/main/ets/pages/main/ContactRowView.ets
++++ b/entry/src/main/ets/pages/main/ContactRowView.ets
+@@ -36,7 +36,8 @@ export struct ContactRowView {
+   // 圆角都由页面那一层的卡片负责，行透明才能让卡片那块透上来（行各铺一块就是
+   // 两层模糊叠加，又重又灰）。只剩按压高亮留在行上，由卡片 clip 裁圆角。
+   private rowFill(): ResourceColor {
+-    return this.pressed ? $r('app.color.surface_alt') : Color.Transparent;
++    // The system's pressed highlight: surface_alt vanishes on a flat row over the grey page (asteroids port).
++    return this.pressed ? $r('sys.color.interactive_pressed') : Color.Transparent;
+   }
+ 
+   build() {
+diff --git a/entry/src/main/ets/pages/main/ContactsPage.ets b/entry/src/main/ets/pages/main/ContactsPage.ets
+index 71c0d92..f761e31 100644
+--- a/entry/src/main/ets/pages/main/ContactsPage.ets
++++ b/entry/src/main/ets/pages/main/ContactsPage.ets
+@@ -63,7 +63,7 @@ import { KEY_APP_DARK } from '../../util/theme';
+ import { rememberSplitNavWidth, resolveSplitNavWidth } from '../../util/splitNavWidth';
+ import { APPEARANCE_EPOCH } from '../../util/appearance';
+ import { mainPageFill } from '../../util/theme';
+-import { KEY_APP_BG_ON } from '../../store/AppSettings';
++import { KEY_APP_BG_ON, KEY_APP_BG_PICTURE } from '../../store/AppSettings';
+ 
+ // 卡片底色 + 毛玻璃。开关关着时 surfaceGlassFill 原样返回实色、
+ // cardBlurStyle 返回 undefined，和改动前逐字节等价（见 util/surfaceGlass）。
+@@ -117,6 +117,7 @@ function contactsSplitPlaceholder(): void {
+ export struct ContactsPage {
+   // 由 MainScreen 算好写进来的「APP 壁纸生效中」，见 store/AppSettings。
+   @StorageProp(KEY_APP_BG_ON) private appWallpaperOn: boolean = false;
++  @StorageProp(KEY_APP_BG_PICTURE) private appWallpaperPicture: boolean = false;
+   @StorageProp(APPEARANCE_EPOCH) appearanceEpoch: number = 0;
+   // 强调色是 theme 里的活绑定，读一次 epoch 让 ArkUI 记下依赖，用户改色后即时重绘。
+   private accent(): ResourceColor {
+@@ -138,7 +139,15 @@ export struct ContactsPage {
+     return this.surfaceGlassOn && this.surfaceGlassEpoch >= 0;
+   }
+ 
++  // Flat contact rows over a plain background, as in the chat list (ChatRow.rowFlat; asteroids port).
++  private cardFlat(): boolean {
++    return !this.glassOn() && !this.appWallpaperPicture;
++  }
++
+   private cardFill(): ResourceColor {
++    if (this.cardFlat()) {
++      return Color.Transparent;
++    }
+     return this.glassOn() ? surfaceGlassFill(CARD_BG) : CARD_BG;
+   }
+ 
+@@ -1274,7 +1283,7 @@ export struct ContactsPage {
+             })
+             .backgroundColor(this.cardFill())
+             .backgroundBlurStyle(this.cardBlurStyle())
+-            .clip(true);
++            .clip(!this.cardFlat());
+           }
+         }
+         .width('100%');
+diff --git a/entry/src/main/ets/pages/main/MainScreen.ets b/entry/src/main/ets/pages/main/MainScreen.ets
+index cb13ce6..cb8a797 100644
+--- a/entry/src/main/ets/pages/main/MainScreen.ets
++++ b/entry/src/main/ets/pages/main/MainScreen.ets
+@@ -5,13 +5,13 @@ import {
+ import { common } from '@kit.AbilityKit';
+ import { AppBackdrop } from '../common/AppBackdrop';
+ import {
+-  KEY_APP_BG_ON, KEY_APP_BG_STATE_DARK, KEY_APP_BG_STATE_LIGHT, KEY_FORCE_SINGLE_COLUMN,
++  KEY_APP_BG_ON, KEY_APP_BG_PICTURE, KEY_APP_BG_STATE_DARK, KEY_APP_BG_STATE_LIGHT, KEY_FORCE_SINGLE_COLUMN,
+   KEY_MUSIC_CENTER_ON
+ } from '../../store/AppSettings';
+ import { KEY_APP_DARK } from '../../util/theme';
+ import { navigateToSetting } from '../../util/settingsNav';
+ import { KEY_CHAT_VIEWER_COVERS_WINDOW } from '../../util/viewerWindowCover';
+-import { appWallpaperActive, KEY_SPLIT_UNIFIED_BG } from '../../util/localWallpaper';
++import { appWallpaperActive, appWallpaperIsPicture, KEY_SPLIT_UNIFIED_BG } from '../../util/localWallpaper';
+ import { DOCK_MODE_LEFT_FLOATING } from '../../util/splitMetrics';
+ 
+ import { router } from '@kit.ArkUI';
+@@ -239,7 +239,9 @@ export struct MainScreen {
+ 
+   private syncWallpaperFlag(): void {
+     const path: string = this.wallpaperDark ? this.appBgDark : this.appBgLight;
+-    AppStorage.setOrCreate(KEY_APP_BG_ON, appWallpaperActive(path, this.wallpaperSplit()));
++    const on: boolean = appWallpaperActive(path, this.wallpaperSplit());
++    AppStorage.setOrCreate(KEY_APP_BG_ON, on);
++    AppStorage.setOrCreate(KEY_APP_BG_PICTURE, on && appWallpaperIsPicture(path));
+   }
+ 
+   aboutToAppear(): void {
+diff --git a/entry/src/main/ets/store/AppSettings.ets b/entry/src/main/ets/store/AppSettings.ets
+index 9bc50c4..a86ed99 100644
+--- a/entry/src/main/ets/store/AppSettings.ets
++++ b/entry/src/main/ets/store/AppSettings.ets
+@@ -317,6 +317,10 @@ export const KEY_APP_BG_DIM: string = 'appBgDim';
+ // 「APP 壁纸此刻生效中」。由 MainScreen 算一次写进来（它同时知道分栏和路径），
+ // 其余组件只读这一个键——否则每个要变透明的容器都得自己拿窗口尺寸重算一遍分栏。
+ export const KEY_APP_BG_ON: string = 'appBgOn';
++// True while that wallpaper is a picture (photo or pattern) rather than a plain colour or gradient; written next to
++// KEY_APP_BG_ON. Chat and contact rows keep their cards over a picture, where text needs the fill, and lie flat over a
++// plain colour, as the system apps' lists do (asteroids port).
++export const KEY_APP_BG_PICTURE: string = 'appBgPicture';
+ 
+ // ── 壁纸四槽位 ────────────────────────────────────────────────────────────
+ // APP 浅色 / APP 深色 / 聊天浅色 / 聊天深色，各有自己的壁纸和三根滑杆。
+diff --git a/entry/src/main/ets/util/localWallpaper.ets b/entry/src/main/ets/util/localWallpaper.ets
+index 3deeafa..1e6f583 100644
+--- a/entry/src/main/ets/util/localWallpaper.ets
++++ b/entry/src/main/ets/util/localWallpaper.ets
+@@ -64,6 +64,13 @@ export function appWallpaperActive(stateRaw: string, split: boolean): boolean {
+   return AppStorage.get<boolean>(KEY_SPLIT_UNIFIED_BG) ?? true;
+ }
+ 
++// Whether a stored app background (a serialised ChatBackgroundState, see ChatBackgroundStore.serialiseSnapshot) is a
++// picture: its third field is the image path, empty for plain colours and gradients.
++export function appWallpaperIsPicture(stateRaw: string): boolean {
++  const f: string[] = stateRaw.split('\t');
++  return f.length > 2 && f[2] !== '';
++}
++
+ // 分栏时是否用「整窗一张壁纸」代替每个会话自己的壁纸。默认开。
+ export const KEY_SPLIT_UNIFIED_BG: string = 'splitUnifiedBg';
+ 

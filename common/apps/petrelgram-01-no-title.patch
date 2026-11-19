@@ -1,0 +1,13 @@
+diff --git a/entry/src/main/ets/pages/chatlist/ChatListPage.ets b/entry/src/main/ets/pages/chatlist/ChatListPage.ets
+index da0afbf..ce1ce9b 100644
+--- a/entry/src/main/ets/pages/chatlist/ChatListPage.ets
++++ b/entry/src/main/ets/pages/chatlist/ChatListPage.ets
+@@ -1146,7 +1146,7 @@ export struct ChatListPage {
+       Column() {
+         Text($r('app.string.app_name'))
+           .id(TITLE_MAIN_ID)
+-          .fontSize(25)
++          .fontSize(0) // the "Petrel" title is hidden (asteroids port)
+           .fontWeight(FontWeight.Bold)
+           .fontColor(this.accent())
+           .maxLines(1)
